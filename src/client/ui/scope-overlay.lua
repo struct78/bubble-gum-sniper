@@ -89,7 +89,7 @@ local function CreateScopeOverlay()
 	distanceReadout.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	distanceReadout.TextColor3 = Color3.fromRGB(0, 255, 100)
 	distanceReadout.TextSize = 14
-	distanceReadout.Font = Enum.Font.GothamMono
+	distanceReadout.Font = Enum.Font.RobotoMono
 	distanceReadout.Text = "0 m"
 	distanceReadout.Parent = screenGui
 	
@@ -109,7 +109,7 @@ local function CreateScopeOverlay()
 	windLabel.BackgroundTransparency = 1
 	windLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
 	windLabel.TextSize = 12
-	windLabel.Font = Enum.Font.GothamMono
+	windLabel.Font = Enum.Font.RobotoMono
 	windLabel.Text = "WIND"
 	windLabel.Parent = windGauge
 	
@@ -132,7 +132,7 @@ local function CreateScopeOverlay()
 	ballistics.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	ballistics.TextColor3 = Color3.fromRGB(255, 200, 0)
 	ballistics.TextSize = 11
-	ballistics.Font = Enum.Font.GothamMono
+	ballistics.Font = Enum.Font.RobotoMono
 	ballistics.Text = "0m\n0m/s\n0°"
 	ballistics.Parent = screenGui
 	
@@ -182,7 +182,7 @@ function ScopeUI:UpdateBallistics(distance, windIntensity, projectileSpeed)
 			"%.0fm\n%.0fm/s\n%.1f°",
 			distance,
 			projectileSpeed,
-			math.deg(math.atan(bulletDrop / distance))
+			math.deg(math.atan2(bulletDrop, distance))
 		)
 	end
 end

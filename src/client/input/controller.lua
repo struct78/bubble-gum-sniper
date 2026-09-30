@@ -19,13 +19,29 @@ InputController.State = {
 
 -- Input events
 function InputController.CreateInputSignal()
-	return Instance.new("BindableEvent")
+	local bindable = Instance.new("BindableEvent")
+	local Signal = {}
+	
+	function Signal:Connect(callback)
+		return bindable.Event:Connect(callback)
+	end
+	
+	function Signal:Wait()
+		return bindable.Event:Wait()
+	end
+	
+	function Signal:Fire(...)
+		bindable:Fire(...)
+	end
+	
+	return Signal
 end
 
 InputController.OnMouseMove = InputController.CreateInputSignal()
 InputController.OnFire = InputController.CreateInputSignal()
 InputController.OnScopeToggle = InputController.CreateInputSignal()
 InputController.OnZoomChange = InputController.CreateInputSignal()
+InputController.OnSniperModeToggle = InputController.CreateInputSignal()
 
 -- ============================================================================
 -- PC INPUT (MOUSE & KEYBOARD)
@@ -44,25 +60,28 @@ local function InitializePCInput()
 	
 	-- Key input
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		print("[Input] InputBegan:", input.UserInputType.Name, input.KeyCode.Name, "gameProcessed:", gameProcessed)
+		
 		if gameProcessed then return end
 		
-		if input.KeyCode == Enum.KeyCode.Space or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.KeyCode == Enum.KeyCode.F or input.UserInputType == Enum.UserInputType.MouseButton1 then
+			print("[Input] Fire pressed")
 			InputController.State.IsFirePressed = true
 			InputController.OnFire:Fire(true)
-		elseif input.KeyCode == Enum.KeyCode.E then
-			InputController.State.IsScopeToggled = not InputController.State.IsScopeToggled
-			InputController.OnScopeToggle:Fire(InputController.State.IsScopeToggled)
+		elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.LeftControl then
+			-- Toggle third-person / sniper mode
+			InputController.OnSniperModeToggle:Fire()
 		elseif input.KeyCode == Enum.KeyCode.Q then
 			-- Zoom out
 			InputController.OnZoomChange:Fire(Enum.KeyCode.Q)
-		elseif input.KeyCode == Enum.KeyCode.W then
+		elseif input.KeyCode == Enum.KeyCode.E then
 			-- Zoom in
-			InputController.OnZoomChange:Fire(Enum.KeyCode.W)
+			InputController.OnZoomChange:Fire(Enum.KeyCode.E)
 		end
 	end)
 	
 	UserInputService.InputEnded:Connect(function(input, gameProcessed)
-		if input.KeyCode == Enum.KeyCode.Space or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.KeyCode == Enum.KeyCode.F or input.UserInputType == Enum.UserInputType.MouseButton1 then
 			InputController.State.IsFirePressed = false
 			InputController.OnFire:Fire(false)
 		end
@@ -86,8 +105,8 @@ end
 -- ============================================================================
 
 function InputController:Initialize()
-	if UserInputService:GetPlatform() == Enum.Platform.UWP or 
-	   UserInputService:GetPlatform() == Enum.Platform.Mobile then
+	-- Detect mobile by checking if TouchEnabled is available
+	if UserInputService.TouchEnabled then
 		InitializeMobileInput()
 	else
 		InitializePCInput()

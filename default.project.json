@@ -17,12 +17,10 @@
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
-        "$className": "StarterPlayer",
-        "StarterCharacterScripts": {},
-        "StarterPlayerScripts": {}
-      },
-      "StarterCharacterScripts": {
-        "$path": "src/client"
+        "$className": "StarterPlayerScripts",
+        "Client": {
+          "$path": "src/client"
+        }
       }
     }
   }

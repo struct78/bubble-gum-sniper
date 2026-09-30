@@ -174,7 +174,7 @@ local function CreateLevelCompleteScreen()
 	scoreLabel.BackgroundTransparency = 1
 	scoreLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
 	scoreLabel.TextSize = 28
-	scoreLabel.Font = Enum.Font.GothamMono
+	scoreLabel.Font = Enum.Font.RobotoMono
 	scoreLabel.Text = "Score: 0"
 	scoreLabel.Parent = resultPanel
 	
@@ -186,7 +186,7 @@ local function CreateLevelCompleteScreen()
 	accuracyLabel.BackgroundTransparency = 1
 	accuracyLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
 	accuracyLabel.TextSize = 18
-	accuracyLabel.Font = Enum.Font.GothamMono
+	accuracyLabel.Font = Enum.Font.RobotoMono
 	accuracyLabel.Text = "Accuracy: 0%"
 	accuracyLabel.Parent = resultPanel
 	
@@ -227,14 +227,12 @@ end
 function PauseMenu:Show()
 	self.IsOpen = true
 	self.ScreenGui.Enabled = true
-	game:GetService("RunService"):Set("IsRunning", false)
 	print("[UI] Pause menu opened")
 end
 
 function PauseMenu:Close()
 	self.IsOpen = false
 	self.ScreenGui.Enabled = false
-	game:GetService("RunService"):Set("IsRunning", true)
 	print("[UI] Pause menu closed")
 end
 

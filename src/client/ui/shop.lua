@@ -49,7 +49,7 @@ local function CreateShopInterface()
 	currencyLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	currencyLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
 	currencyLabel.TextSize = 16
-	currencyLabel.Font = Enum.Font.GothamMono
+	currencyLabel.Font = Enum.Font.RobotoMono
 	currencyLabel.Text = "Bubbles: 100"
 	currencyLabel.Parent = mainPanel
 	

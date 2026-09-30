@@ -64,50 +64,23 @@ end
 -- CHARACTER SPAWNING
 -- ============================================================================
 
-local function CreateCharacter(player)
-	print("[Server] Creating character for", player.Name)
-	
-	-- Create humanoid root part
-	local humanoidRootPart = Instance.new("Part")
-	humanoidRootPart.Name = "HumanoidRootPart"
-	humanoidRootPart.Shape = Enum.PartType.Ball
-	humanoidRootPart.Size = Vector3.new(2, 2, 1)
-	humanoidRootPart.CanCollide = false
-	humanoidRootPart.CFrame = CFrame.new(0, 5, 0)
-	humanoidRootPart.Parent = player.Character or workspace
-	
-	-- Create head
-	local head = Instance.new("Part")
-	head.Name = "Head"
-	head.Shape = Enum.PartType.Ball
-	head.Size = Vector3.new(2, 1, 1)
-	head.BrickColor = BrickColor.new("Bright yellow")
-	head.CanCollide = false
-	head.TopSurface = Enum.SurfaceType.Smooth
-	head.BottomSurface = Enum.SurfaceType.Smooth
-	head.Parent = player.Character or workspace
-	
-	-- Weld head to humanoid root part
-	local neck = Instance.new("Weld")
-	neck.Name = "Neck"
-	neck.Part0 = head
-	neck.Part1 = humanoidRootPart
-	neck.C0 = CFrame.new(0, 1, 0)
-	neck.Parent = head
-	
-	-- Create humanoid
-	local humanoid = Instance.new("Humanoid")
-	humanoid.Name = "Humanoid"
-	humanoid.Parent = player.Character or workspace
-	
-	print("[Server] Character created for", player.Name)
-	return player.Character or workspace
+local function OnCharacterAdded(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		print("[Server] Character loaded for", player.Name)
+	end
 end
 
-local function OnCharacterAdded(player)
-	-- Wait for character to be loaded
-	local character = player.Character or player.CharacterAdded:Wait()
-	print("[Server] Character loaded for", player.Name)
+local function EnsureCharacterLoaded(player)
+	if not player.Character then
+		print("[Server] Loading character for", player.Name)
+		local success, err = pcall(function()
+			player:LoadCharacter()
+		end)
+		if not success then
+			warn("[Server] LoadCharacter failed:", err)
+		end
+	end
 end
 
 -- ============================================================================
@@ -115,18 +88,25 @@ end
 -- ============================================================================
 
 local function HandlePlayerFire(player, character, fireData)
+	print("[Server] HandlePlayerFire from", player.Name, "character:", character and character.Name or "nil")
+	
 	-- Validate player and character
-	if not character or character.Parent == nil then return end
+	if not character or character.Parent == nil then
+		warn("[Server] Fire rejected: invalid character")
+		return
+	end
 	
 	-- Get camera direction (from client)
 	local cameraDirection = fireData.Direction
-	if cameraDirection.Magnitude == 0 then
+	if not cameraDirection or cameraDirection.Magnitude == 0 then
 		cameraDirection = Vector3.new(0, 0, -1) -- Fallback
 	end
 	cameraDirection = cameraDirection.Unit
 	
-	-- Get current wind
-	local wind = Wind:GetWindAtPosition(character.PrimaryPart.Position, LevelData.Levels[GameState.CurrentLevel])
+	-- Get current wind (use Head position for wind sampling)
+	local head = character:FindFirstChild("Head")
+	local windSamplePos = head and head.Position or character:GetPivot().Position
+	local wind = Wind:GetWindAtPosition(windSamplePos, LevelData.Levels[GameState.CurrentLevel])
 	
 	-- Fire weapon
 	local success, reason = Weapon:Fire(character, cameraDirection, wind)
@@ -313,14 +293,21 @@ local function StartLevel(levelNumber)
 	-- Build level environment
 	LevelEnvironment:BuildLevel(levelNumber)
 	
-	-- Spawn player at level start position
+	-- Ensure all players have characters, then move them to spawn
 	for _, player in pairs(Players:GetPlayers()) do
+		EnsureCharacterLoaded(player)
+		
 		local character = player.Character
 		if character then
 			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 			if humanoidRootPart then
 				humanoidRootPart.CFrame = CFrame.new(levelData.SpawnPosition)
+				print("[Server] Moved", player.Name, "to spawn", tostring(levelData.SpawnPosition))
+			else
+				warn("[Server] Character for", player.Name, "has no HumanoidRootPart")
 			end
+		else
+			warn("[Server] Player", player.Name, "has no character after load attempt")
 		end
 	end
 	
@@ -352,12 +339,19 @@ local function Initialize()
 	print("[Server] Debug mode:", Constants.Debug.Enabled and "ON" or "OFF")
 	
 	-- Connect player events
-	Players.PlayerAdded:Connect(InitializePlayer)
+	Players.PlayerAdded:Connect(function(player)
+		InitializePlayer(player)
+		player.CharacterAdded:Connect(OnCharacterAdded)
+		-- Load character so client can initialize camera
+		EnsureCharacterLoaded(player)
+	end)
 	Players.PlayerRemoving:Connect(CleanupPlayer)
 	
 	-- Initialize existing players
 	for _, player in pairs(Players:GetPlayers()) do
 		InitializePlayer(player)
+		player.CharacterAdded:Connect(OnCharacterAdded)
+		EnsureCharacterLoaded(player)
 	end
 	
 	-- Setup remote event handlers

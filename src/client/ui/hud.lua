@@ -54,7 +54,7 @@ local function CreateHUD()
 	distanceLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	distanceLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
 	distanceLabel.TextSize = 18
-	distanceLabel.Font = Enum.Font.GothamMono
+	distanceLabel.Font = Enum.Font.RobotoMono
 	distanceLabel.Text = "Distance: 0 studs"
 	distanceLabel.Parent = screenGui
 	
@@ -85,7 +85,7 @@ local function CreateHUD()
 	ammoCounter.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	ammoCounter.TextColor3 = Color3.fromRGB(255, 255, 0)
 	ammoCounter.TextSize = 18
-	ammoCounter.Font = Enum.Font.GothamMono
+	ammoCounter.Font = Enum.Font.RobotoMono
 	ammoCounter.Text = "Ammo: 50"
 	ammoCounter.Parent = screenGui
 	
@@ -98,7 +98,7 @@ local function CreateHUD()
 	scoreLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	scoreLabel.TextColor3 = Color3.fromRGB(255, 100, 200)
 	scoreLabel.TextSize = 18
-	scoreLabel.Font = Enum.Font.GothamMono
+	scoreLabel.Font = Enum.Font.RobotoMono
 	scoreLabel.Text = "Score: 0"
 	scoreLabel.Parent = screenGui
 	

@@ -24,7 +24,7 @@ function Wind:UpdateWind(deltaTime, levelData)
 	
 	-- Get base wind for level
 	self.State.BaseWind = levelData.WindProfile.BaseWind
-	self.State.WindDirection = levelData.WindProfile.Direction:Unit
+	self.State.WindDirection = levelData.WindProfile.Direction.Unit
 	
 	-- Add turbulence (Perlin-like noise simulation)
 	-- For now, use sine wave to vary wind

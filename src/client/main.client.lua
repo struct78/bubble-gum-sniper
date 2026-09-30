@@ -90,11 +90,21 @@ end
 -- ============================================================================
 
 local function OnFireInput(isPressed)
-	if not isPressed or not ClientState.IsInitialized then return end
+	if not isPressed then return end
+	if not ClientState.PlayerCharacter then
+		warn("[Client] Cannot fire: no character")
+		return
+	end
 	
 	-- Get camera direction
 	local camera = workspace.CurrentCamera
+	if not camera then
+		warn("[Client] Cannot fire: no camera")
+		return
+	end
+	
 	local direction = camera.CFrame.LookVector
+	print("[Client] Firing! Direction:", tostring(direction))
 	
 	-- Send fire event to server
 	FireEvent:FireServer(ClientState.PlayerCharacter, {
@@ -107,33 +117,35 @@ local function OnFireInput(isPressed)
 	ClientState.CurrentAmmo = math.max(0, ClientState.CurrentAmmo - 1)
 	HUD:UpdateAmmo(ClientState.CurrentAmmo, Constants.Level.AmmoCap)
 end
-INITIALIZATION
+
 -- ============================================================================
+-- INITIALIZATION
+-- ============================================================================
+
+local function OnCharacterAdded(character)
+	print("[Client] Character added/respawned:", character.Name)
+	ClientState.PlayerCharacter = character
+	
+	-- Re-initialize camera for new character
+	SniperCamera:Initialize(character)
+end
 
 local function Initialize()
 	print("[Client] Initializing Bubble Gum Sniper client...")
 	
 	-- Get player and character
 	local player = Players.LocalPlayer
-	local character = player.Character or player.CharacterAdded:Wait()
-	ClientState.PlayerCharacter = character
+	if not player then
+		warn("[Client] LocalPlayer not available!")
+		return
+	end
 	
 	print("[Client] Player:", player.Name)
-	print("[Client] Character loaded")
 	
-	-- Initialize input system
+	-- Initialize systems that don't depend on character
 	InputController:Initialize()
-	
-	-- Initialize first-person camera
-	SniperCamera:Initialize(character)
-	
-	-- Initialize HUD
 	HUD:Initialize()
-	
-	-- Initialize scope UI
 	ScopeUI:Initialize()
-	
-	-- Initialize pause menu
 	PauseMenu:Initialize()
 	
 	-- Connect to remote events
@@ -143,11 +155,17 @@ local function Initialize()
 	LevelCompleteEvent.OnClientEvent:Connect(OnLevelComplete)
 	
 	-- Setup input handlers
-	InputController.OnFire:Connect(OnFireInput)
+	print("[Client] Connecting OnFire handler")
+	InputController.OnFire:Connect(function(isPressed)
+		print("[Client] OnFire fired, isPressed:", isPressed)
+		OnFireInput(isPressed)
+	end)
 	
-	InputController.OnScopeToggle:Connect(function(isScoped)
+	InputController.OnSniperModeToggle:Connect(function()
+		local isSniperMode = SniperCamera:ToggleSniperMode()
+		ClientState.IsScoped = isSniperMode
 		
-		if isScoped then
+		if isSniperMode then
 			ScopeUI:Show()
 			HUD:Hide() -- Hide regular HUD when scoped
 		else
@@ -156,16 +174,26 @@ local function Initialize()
 		end
 	end)
 	
-	-- Zoom input (Q/W keys)
+	-- Zoom input (E zoom in / Q zoom out)
 	InputController.OnZoomChange:Connect(function(keyCode)
 		if ClientState.IsScoped then
 			SniperCamera:CycleZoomLevel()
 			ScopeUI:UpdateDistance(ClientState.Distance) -- Refresh display
 		end
-		ClientState.IsScoped = isScoped
-		print("[Client] Scope toggled:", isScoped)
-		SniperCamera:ToggleScope(isScoped)
 	end)
+	
+	-- Handle initial character and respawns
+	player.CharacterAdded:Connect(OnCharacterAdded)
+	
+	local character = player.Character
+	if character then
+		print("[Client] Initial character already present")
+		OnCharacterAdded(character)
+	else
+		print("[Client] Waiting for initial character...")
+		character = player.CharacterAdded:Wait()
+		OnCharacterAdded(character)
+	end
 	
 	ClientState.IsInitialized = true
 	print("[Client] Client initialization complete!")
@@ -176,7 +204,6 @@ end
 -- ============================================================================
 
 if Config.Environment.IsClient then
-	Initialize()
 	Initialize()
 	-- ClientLoop() -- Uncomment when ready to implement game loop
 else
