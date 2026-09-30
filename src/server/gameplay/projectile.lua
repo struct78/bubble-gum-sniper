@@ -18,7 +18,7 @@ function Projectile:Create(position, velocity, caliber)
 	bubble.Name = "BubbleGumProjectile"
 	bubble.Shape = Enum.PartType.Ball
 	bubble.Size = Vector3.new(0.3, 0.3, 0.3)
-	bubble.Color = Color3.fromRGB(255, 200, 100) -- Bubble gum color
+	bubble.Color = Color3.fromRGB(128, 10, 128) -- Bubble gum color
 	bubble.Material = Enum.Material.Neon
 	bubble.CanCollide = false
 	bubble.TopSurface = Enum.SurfaceType.Smooth

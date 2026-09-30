@@ -11,9 +11,9 @@ local Constants = {}
 
 Constants.Projectile = {
 	-- Bubble gum pellet properties
-	Size = Vector3.new(0.3, 0.3, 0.3),
+	Size = Vector3.new(0.5, 0.5, 0.5),
 	Mass = 0.1,
-	Velocity = 100, -- Studs per second
+	Velocity = 50, -- Studs per second
 	MaxLifetime = 30, -- Seconds before projectile despawns
 	
 	-- Wind physics
@@ -21,7 +21,7 @@ Constants.Projectile = {
 	MaxWindSpeed = 50, -- Max wind velocity in studs/second
 	
 	-- Gravity
-	Gravity = 32.2, -- Roblox gravity constant
+	Gravity = 3.22, -- Reduced by 90% from Roblox gravity for bubble-gum float
 	
 	-- Collision
 	HitRadius = 5, -- Studs - proximity radius for hit detection
