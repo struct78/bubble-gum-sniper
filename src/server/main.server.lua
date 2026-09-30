@@ -108,11 +108,14 @@ local function HandlePlayerFire(player, character, fireData)
 	local windSamplePos = head and head.Position or character:GetPivot().Position
 	local wind = Wind:GetWindAtPosition(windSamplePos, LevelData.Levels[GameState.CurrentLevel])
 	
-	-- Get fire position and velocity
-	local head = character:FindFirstChild("Head")
 	if not head then return end
 	
-	local firePosition = head.Position + head.CFrame.LookVector * 5
+	-- Spawn along the camera ray so the shot lines up with the crosshair
+	local origin = fireData.Position
+	if typeof(origin) ~= "Vector3" or (origin - head.Position).Magnitude > 20 then
+		origin = head.Position
+	end
+	local firePosition = origin + cameraDirection * 3
 	local fireVelocity = cameraDirection * (Constants.Projectile.Velocity * 4) -- Faster shot, flatter arc
 	print("[Server] Spawning projectile at", tostring(firePosition), "dir:", tostring(cameraDirection))
 	

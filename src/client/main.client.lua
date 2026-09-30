@@ -103,12 +103,22 @@ local function OnFireInput(isPressed)
 		return
 	end
 	
+	-- First person: fire along the crosshair. Third person: fire where the character faces.
+	local origin = camera.CFrame.Position
 	local direction = camera.CFrame.LookVector
+	if not SniperCamera.State.IsSniperMode then
+		local hrp = ClientState.PlayerCharacter:FindFirstChild("HumanoidRootPart")
+		local head = ClientState.PlayerCharacter:FindFirstChild("Head")
+		if hrp then
+			direction = hrp.CFrame.LookVector
+			origin = (head or hrp).Position
+		end
+	end
 	print("[Client] Firing! Direction:", tostring(direction))
 	
 	-- Send fire event to server
 	FireEvent:FireServer(ClientState.PlayerCharacter, {
-		Position = camera.CFrame.Position,
+		Position = origin,
 		Direction = direction,
 	})
 	
