@@ -21,7 +21,7 @@ Constants.Projectile = {
 	MaxWindSpeed = 50, -- Max wind velocity in studs/second
 	
 	-- Gravity
-	Gravity = 3.22, -- Reduced by 90% from Roblox gravity for bubble-gum float
+	Gravity = 3.0, -- Reduced by 90% from Roblox gravity for bubble-gum float
 	
 	-- Collision
 	HitRadius = 5, -- Studs - proximity radius for hit detection

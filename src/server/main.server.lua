@@ -108,20 +108,13 @@ local function HandlePlayerFire(player, character, fireData)
 	local windSamplePos = head and head.Position or character:GetPivot().Position
 	local wind = Wind:GetWindAtPosition(windSamplePos, LevelData.Levels[GameState.CurrentLevel])
 	
-	-- Fire weapon
-	local success, reason = Weapon:Fire(character, cameraDirection, wind)
-	
-	if not success then
-		print("[Server] Fire failed:", reason)
-		return
-	end
-	
 	-- Get fire position and velocity
 	local head = character:FindFirstChild("Head")
 	if not head then return end
 	
 	local firePosition = head.Position + head.CFrame.LookVector * 5
-	local fireVelocity = cameraDirection * Constants.Projectile.Velocity
+	local fireVelocity = cameraDirection * (Constants.Projectile.Velocity * 4) -- Faster shot, flatter arc
+	print("[Server] Spawning projectile at", tostring(firePosition), "dir:", tostring(cameraDirection))
 	
 	-- Create projectile
 	local projectileData = Projectile:Create(firePosition, fireVelocity, "small")
@@ -138,9 +131,11 @@ end
 -- ============================================================================
 
 local function UpdateProjectiles(deltaTime)
+	print("[Server] UpdateProjectiles called, count:", #GameState.CurrentProjectiles, "running:", GameState.IsRunning)
 	local projectilesToRemove = {}
 	
 	for i, projectile in ipairs(GameState.CurrentProjectiles) do
+		print("[Server] Updating projectile", i, "active:", projectile.IsActive, "instance:", projectile.Instance and projectile.Instance.Name or "nil")
 		if not projectile.IsActive or not projectile.Instance or projectile.Instance.Parent == nil then
 			table.insert(projectilesToRemove, i)
 			projectile.IsActive = false
@@ -229,6 +224,7 @@ local function UpdatePlayerHUD(player, character)
 end
 
 local function GameLoop()
+	print("[Server] GameLoop started")
 	while GameState.IsRunning do
 		local currentTime = tick()
 		local deltaTime = currentTime - GameState.LastUpdateTime
@@ -284,14 +280,18 @@ local function StartLevel(levelNumber)
 	GameState.IsRunning = true
 	
 	-- Get level data
+	print("[Server] Loading level data for", levelNumber)
 	local levelData = LevelData:Load(levelNumber)
+	print("[Server] Level data loaded:", levelData and levelData.Name or "nil")
 	if not levelData then
 		print("[Server] Level", levelNumber, "not found!")
 		return
 	end
 	
 	-- Build level environment
+	print("[Server] Building level environment...")
 	LevelEnvironment:BuildLevel(levelNumber)
+	print("[Server] Level environment built")
 	
 	-- Ensure all players have characters, then move them to spawn
 	for _, player in pairs(Players:GetPlayers()) do
@@ -312,7 +312,9 @@ local function StartLevel(levelNumber)
 	end
 	
 	-- Spawn targets
+	print("[Server] Spawning targets...")
 	GameState.CurrentTargets = TargetSpawner:SpawnTargetsForLevel(levelData)
+	print("[Server] Spawned", #GameState.CurrentTargets, "targets")
 	
 	-- Initialize wind for level
 	Wind.State.BaseWind = levelData.WindProfile.BaseWind
@@ -326,7 +328,9 @@ local function StartLevel(levelNumber)
 	})
 	
 	-- Start main game loop
-	spawn(GameLoop)
+	print("[Server] Starting game loop...")
+	task.spawn(GameLoop)
+	print("[Server] Game loop spawned")
 end
 
 -- ============================================================================
@@ -334,6 +338,7 @@ end
 -- ============================================================================
 
 local function Initialize()
+	print("[Server] Initialize() entered")
 	print("[Server] Initializing Bubble Gum Sniper server...")
 	print("[Server] Game Constants loaded")
 	print("[Server] Debug mode:", Constants.Debug.Enabled and "ON" or "OFF")
@@ -358,23 +363,40 @@ local function Initialize()
 	RemoteEvents:GetFireEvent().OnServerEvent:Connect(HandlePlayerFire)
 	
 	-- Initialize game services
+	print("[Server] Initializing Weapon...")
 	Weapon:Initialize()
+	print("[Server] Initializing Wind...")
 	Wind:Initialize()
+	print("[Server] Initializing GameController...")
 	GameController:Initialize()
 	
 	print("[Server] Initialization complete!")
 	
 	-- Start first level after a short delay
-	wait(2)
-	StartLevel(1)
+	print("[Server] About to schedule level start...")
+	task.delay(2, function()
+		print("[Server] Delay elapsed, starting level 1")
+		local success, err = pcall(function()
+			StartLevel(1)
+		end)
+		if not success then
+			warn("[Server] StartLevel failed:", err)
+		end
+	end)
+	print("[Server] Level start scheduled")
 end
 
 -- ============================================================================
 -- STARTUP
 -- ============================================================================
 
+print("[Server] main.server.lua loaded. IsServer:", Config.Environment.IsServer, "IsClient:", Config.Environment.IsClient, "IsStudio:", Config.Environment.IsStudio)
+
 if Config.Environment.IsServer then
-	Initialize()
+	local success, err = pcall(Initialize)
+	if not success then
+		warn("[Server] Initialize failed:", err)
+	end
 else
 	print("[Client] Server script should not run on client!")
 end

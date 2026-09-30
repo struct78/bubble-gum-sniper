@@ -10,23 +10,51 @@ local PhysicsEngine = {}
 -- ============================================================================
 
 function PhysicsEngine:SimulateProjectile(projectile, deltaTime, wind, gravity)
+	if projectile.Stuck then return projectile end
+	
+	print("[Physics] Simulate dt:", deltaTime, "pos:", tostring(projectile.Position), "vel:", tostring(projectile.Velocity), "grav:", gravity)
+	
 	-- Apply forces
 	local acceleration = Vector3.new(0, -gravity, 0)
 	
 	-- Add wind force
-	local windForce = wind * (0.1 / projectile.Velocity.Magnitude) -- Scale wind by velocity
+	local speed = math.max(projectile.Velocity.Magnitude, 0.001)
+	local windForce = wind * (0.1 / speed) -- Scale wind by velocity
 	acceleration = acceleration + windForce
 	
 	-- Update velocity
 	projectile.Velocity = projectile.Velocity + (acceleration * deltaTime)
 	
-	-- Update position
-	projectile.Position = projectile.Position + (projectile.Velocity * deltaTime)
+	-- Raycast from current position to next position to detect surface hits
+	local step = projectile.Velocity * deltaTime
+	if step.Magnitude < 0.01 then
+		step = projectile.Velocity.Unit * 0.5 -- minimum step for raycast
+	end
+	local nextPosition = projectile.Position + step
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterDescendantsInstances = { projectile.Instance }
+	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+	local raycastResult = workspace:Raycast(projectile.Position, step, raycastParams)
 	
-	-- Apply velocity to part (for visual representation)
+	if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
+		-- Stick to surface
+		projectile.Position = raycastResult.Position
+		if projectile.Instance then
+			projectile.Instance.Position = projectile.Position
+		end
+		
+		local ProjectileModule = require(game:GetService("ServerScriptService").Server.gameplay.projectile)
+		ProjectileModule:StickToSurface(projectile, raycastResult)
+		return projectile
+	end
+	
+	-- Update position
+	projectile.Position = nextPosition
+	
+	-- Apply position to anchored part (no physics velocity)
 	if projectile.Instance then
-		projectile.Instance.Position = projectile.Position
-		projectile.Instance.Velocity = projectile.Velocity
+		projectile.Instance.CFrame = CFrame.new(projectile.Position)
+		projectile.Instance.Rotation = Vector3.new(0, 0, 0)
 	end
 	
 	return projectile

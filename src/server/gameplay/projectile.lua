@@ -17,24 +17,44 @@ function Projectile:Create(position, velocity, caliber)
 	local bubble = Instance.new("Part")
 	bubble.Name = "BubbleGumProjectile"
 	bubble.Shape = Enum.PartType.Ball
-	bubble.Size = Vector3.new(0.3, 0.3, 0.3)
-	bubble.Color = Color3.fromRGB(128, 10, 128) -- Bubble gum color
+	bubble.Size = Vector3.new(1.2, 1.2, 1.2) -- Larger so it's easier to see
+	bubble.Color = Color3.fromRGB(255, 105, 180) -- Hot pink bubble gum
 	bubble.Material = Enum.Material.Neon
 	bubble.CanCollide = false
+	bubble.Anchored = true -- Anchored so Roblox physics doesn't apply gravity
 	bubble.TopSurface = Enum.SurfaceType.Smooth
 	bubble.BottomSurface = Enum.SurfaceType.Smooth
 	bubble.CFrame = CFrame.new(position)
-	bubble.Velocity = velocity
 	bubble.Parent = workspace
+	
+	-- Add a glowing trail so the projectile is visible
+	local attachment0 = Instance.new("Attachment")
+	attachment0.Position = Vector3.new(0, 0, 0.5)
+	attachment0.Parent = bubble
+	local attachment1 = Instance.new("Attachment")
+	attachment1.Position = Vector3.new(0, 0, -0.5)
+	attachment1.Parent = bubble
+	local trail = Instance.new("Trail")
+	trail.Color = ColorSequence.new(Color3.fromRGB(255, 105, 180))
+	trail.Transparency = NumberSequence.new(0.3, 1)
+	trail.WidthScale = NumberSequence.new(1, 0)
+	trail.Lifetime = 0.3
+	trail.Attachment0 = attachment0
+	trail.Attachment1 = attachment1
+	trail.Parent = bubble
+	
+	local safeVelocity = velocity.Unit * math.max(velocity.Magnitude, 100)
+	print("[Projectile] Created at", tostring(position), "vel:", tostring(safeVelocity))
 	
 	local projectileData = {
 		Instance = bubble,
 		Position = position,
-		Velocity = velocity,
+		Velocity = safeVelocity,
 		Wind = Vector3.new(0, 0, 0),
 		CreatedAt = tick(),
 		Caliber = caliber or "small",
 		IsActive = true,
+		Stuck = false,
 	}
 	
 	table.insert(self.ActiveProjectiles, projectileData)
@@ -99,6 +119,49 @@ function Projectile:Deactivate(projectileData)
 	projectileData.IsActive = false
 	if projectileData.Instance and projectileData.Instance.Parent then
 		projectileData.Instance:Destroy()
+	end
+end
+
+-- ============================================================================
+-- SURFACE STICKING
+-- ============================================================================
+
+function Projectile:StickToSurface(projectileData, hitResult)
+	if projectileData.Stuck then return end
+	projectileData.Stuck = true
+	projectileData.IsActive = false
+	
+	local hitPart = hitResult.Instance
+	local hitPosition = hitResult.Position
+	local hitNormal = hitResult.Normal
+	
+	if hitPart and hitPart.CanCollide then
+		-- Stop movement
+		projectileData.Velocity = Vector3.new(0, 0, 0)
+		
+		local bubble = projectileData.Instance
+		if bubble and bubble.Parent then
+			-- Position slightly above surface
+			bubble.Position = hitPosition + hitNormal * (bubble.Size.Y / 2)
+			bubble.Anchored = true
+			bubble.Velocity = Vector3.new()
+			
+			-- Weld to surface so it moves with the object
+			local weld = Instance.new("Weld")
+			weld.Part0 = bubble
+			weld.Part1 = hitPart
+			weld.C0 = bubble.CFrame:ToObjectSpace(hitPart.CFrame):Inverse()
+			weld.Parent = bubble
+			
+			-- Make it look like a splat: flatten along normal
+			local splatScale = Vector3.new(1.8, 0.3, 1.8)
+			bubble.Size = splatScale
+			bubble.CFrame = CFrame.lookAt(bubble.Position, bubble.Position + hitNormal) * CFrame.Angles(math.rad(90), 0, 0)
+		end
+		
+		print("[Projectile] Bubble stuck to", hitPart.Name)
+	else
+		self:Deactivate(projectileData)
 	end
 end
 

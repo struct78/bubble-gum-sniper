@@ -96,10 +96,12 @@ end
 
 local function CleanupLevel()
 	-- Destroy all level geometry
-	for _, part in pairs(workspace:FindPartBySide(Vector3.new(0, 1, 0), nil)) do
-		if part.Name:match("Rooftop") or part.Name:match("Building") or 
-		   part.Name:match("Mountain") or part.Name:match("Slope") or 
-		   part.Name:match("Peak") then
+	for _, part in pairs(workspace:GetDescendants()) do
+		if part:IsA("BasePart") and (
+			part.Name:match("Rooftop") or part.Name:match("Building") or 
+			part.Name:match("Mountain") or part.Name:match("Slope") or 
+			part.Name:match("Peak")
+		) then
 			part:Destroy()
 		end
 	end
