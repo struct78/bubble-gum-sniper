@@ -1,7 +1,6 @@
 local TweenService = game:GetService("TweenService")
 
-local WOBBLE = 0.01
-local HALF_PERIOD_SECONDS = 1.2
+local BubbleWobble = require(script.Parent["bubble-wobble"])
 
 local assets = workspace:FindFirstChild("Assets")
 local dome = workspace:FindFirstChild("BubbleDome")
@@ -18,11 +17,11 @@ if not dome.Anchored then
 end
 
 local size = dome.Size
-dome.Size = Vector3.new(size.X * (1 - WOBBLE), size.Y, size.Z * (1 + WOBBLE))
+dome.Size = BubbleWobble.SizeAtPhase(size, -1)
 
 local tween = TweenService:Create(
 	dome,
-	TweenInfo.new(HALF_PERIOD_SECONDS, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-	{ Size = Vector3.new(size.X * (1 + WOBBLE), size.Y, size.Z * (1 - WOBBLE)) }
+	TweenInfo.new(BubbleWobble.HalfPeriod, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+	{ Size = BubbleWobble.SizeAtPhase(size, 1) }
 )
 tween:Play()

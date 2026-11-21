@@ -153,7 +153,7 @@ function Projectile:StickToSurface(projectileData, hitResult)
 			weld.C0 = bubble.CFrame:ToObjectSpace(hitPart.CFrame):Inverse()
 			weld.Parent = bubble
 			
-			-- Make it look like a splat: flatten along normal
+			-- Preserve the stopped projectile's geometry, but replace the visible splat.
 			local splatScale = Vector3.new(1.8, 0.3, 1.8)
 			bubble.Size = splatScale
 			bubble.CFrame = CFrame.lookAt(bubble.Position, bubble.Position + hitNormal) * CFrame.Angles(math.rad(90), 0, 0)
@@ -162,6 +162,18 @@ function Projectile:StickToSurface(projectileData, hitResult)
 		print("[Projectile] Bubble stuck to", hitPart.Name)
 	else
 		self:Deactivate(projectileData)
+	end
+end
+
+function Projectile.HideSplat(projectileData)
+	local bubble = projectileData.Instance
+	if not bubble or not bubble.Parent then return end
+
+	bubble.Transparency = 1
+	local trail = bubble:FindFirstChildOfClass("Trail")
+	if trail then
+		trail.Enabled = false
+		trail:Clear()
 	end
 end
 

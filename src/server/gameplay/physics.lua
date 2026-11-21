@@ -31,12 +31,15 @@ function PhysicsEngine:SimulateProjectile(projectile, deltaTime, wind, gravity)
 		step = projectile.Velocity.Unit * 0.5 -- minimum step for raycast
 	end
 	local nextPosition = projectile.Position + step
+	local traversed = { Origin = projectile.Position, Displacement = step, Time = time() }
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterDescendantsInstances = { projectile.Instance }
 	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 	local raycastResult = workspace:Raycast(projectile.Position, step, raycastParams)
 	
 	if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
+		traversed.Surface = raycastResult
+		traversed.Displacement = raycastResult.Position - traversed.Origin
 		-- Stick to surface
 		projectile.Position = raycastResult.Position
 		if projectile.Instance then
@@ -45,7 +48,7 @@ function PhysicsEngine:SimulateProjectile(projectile, deltaTime, wind, gravity)
 		
 		local ProjectileModule = require(game:GetService("ServerScriptService").Server.gameplay.projectile)
 		ProjectileModule:StickToSurface(projectile, raycastResult)
-		return projectile
+		return projectile, traversed
 	end
 	
 	-- Update position
@@ -57,7 +60,7 @@ function PhysicsEngine:SimulateProjectile(projectile, deltaTime, wind, gravity)
 		projectile.Instance.Rotation = Vector3.new(0, 0, 0)
 	end
 	
-	return projectile
+	return projectile, traversed
 end
 
 -- ============================================================================

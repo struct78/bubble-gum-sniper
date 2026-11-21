@@ -25,6 +25,9 @@ local Wind = require(Server:WaitForChild("gameplay"):WaitForChild("wind"))
 local Targeting = require(Server:WaitForChild("gameplay"):WaitForChild("targeting"))
 local Physics = require(Server:WaitForChild("gameplay"):WaitForChild("physics"))
 local Projectile = require(Server:WaitForChild("gameplay"):WaitForChild("projectile"))
+local ImpactContact = require(Server:WaitForChild("gameplay"):WaitForChild("impact-contact"))
+local ImpactBubble = require(Server:WaitForChild("gameplay"):WaitForChild("impact-bubble"))
+local SessionScore = require(Server:WaitForChild("player"):WaitForChild("session-score"))
 local Target = require(Server:WaitForChild("gameplay"):WaitForChild("target"))
 local TargetSpawner = require(Server:WaitForChild("gameplay"):WaitForChild("target-spawner"))
 local GameController = require(Server:WaitForChild("gameplay"):WaitForChild("game-controller"))
@@ -46,9 +49,12 @@ local GameState = {
 -- ============================================================================
 
 local function InitializePlayer(player)
+	local entry = GameState.ActivePlayers[player.UserId]
+	if entry and entry.Player == player then return end
 	print("[Server] Player joined:", player.Name)
 	GameState.ActivePlayers[player.UserId] = {
 		Player = player,
+		SessionScore = SessionScore.Create(player),
 		LevelProgress = 1,
 		IsReady = false,
 	}
@@ -120,6 +126,9 @@ local function HandlePlayerFire(player, character, fireData)
 	
 	-- Create projectile
 	local projectileData = Projectile:Create(firePosition, fireVelocity, "small")
+	if character == player.Character then
+		projectileData.ShooterUserId = player.UserId
+	end
 	table.insert(GameState.CurrentProjectiles, projectileData)
 	
 	-- Send fire event to clients for effects
@@ -147,7 +156,26 @@ local function UpdateProjectiles(deltaTime)
 			local wind = Wind:GetWindAtPosition(projectile.Position, levelData)
 			
 			-- Update physics
-			Physics:SimulateProjectile(projectile, deltaTime, wind, Constants.Projectile.Gravity)
+			local _, step = Physics:SimulateProjectile(projectile, deltaTime, wind, Constants.Projectile.Gravity)
+			local visualContact
+			if step then
+				-- Only the surface accepted by physics can award player points.
+				local victim = ImpactContact.FindVictim(step.Surface, projectile.ShooterUserId)
+				SessionScore.AwardHit(projectile, victim, GameState.ActivePlayers)
+
+				-- Snapshot before legacy scoring can destroy the struck target.
+				if not projectile.ImpactVisualClaimed then
+					local ok, result = pcall(ImpactContact.FindVisual, step, GameState.CurrentTargets)
+					if step.Surface or (ok and result) then
+						projectile.ImpactVisualClaimed = true
+					end
+					if not ok then
+						warn("[Server] Impact contact visual failed:", result)
+					else
+						visualContact = result
+					end
+				end
+			end
 			
 			-- Check for target hits
 			local hitResult = Targeting:CheckTargetHit(projectile.Position, GameState.CurrentTargets)
@@ -181,6 +209,21 @@ local function UpdateProjectiles(deltaTime)
 			if timeElapsed > Constants.Projectile.MaxLifetime or projectile.Position.Magnitude > 1000 then
 				projectile.IsActive = false
 				table.insert(projectilesToRemove, i)
+			end
+
+			if step and step.Surface then
+				local ok, err = pcall(Projectile.HideSplat, projectile)
+				if not ok then warn("[Server] Failed to hide impact splat:", err) end
+			end
+
+			if step then
+				local ok, err = pcall(ImpactBubble.PopAlongStep, step, projectile)
+				if not ok then warn("[Server] Impact bubble pop failed:", err) end
+			end
+
+			if visualContact then
+				local ok, err = pcall(ImpactBubble.Spawn, visualContact, projectile)
+				if not ok then warn("[Server] Impact bubble failed:", err) end
 			end
 		end
 	end
