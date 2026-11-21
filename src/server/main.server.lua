@@ -29,7 +29,6 @@ local Target = require(Server:WaitForChild("gameplay"):WaitForChild("target"))
 local TargetSpawner = require(Server:WaitForChild("gameplay"):WaitForChild("target-spawner"))
 local GameController = require(Server:WaitForChild("gameplay"):WaitForChild("game-controller"))
 local LevelData = require(Server:WaitForChild("levels"):WaitForChild("level-data"))
-local LevelEnvironment = require(Server:WaitForChild("levels"):WaitForChild("level-environment"))
 local RemoteEvents = require(Server:WaitForChild("networking"):WaitForChild("remote-events"))
 
 -- Game state
@@ -290,11 +289,6 @@ local function StartLevel(levelNumber)
 		print("[Server] Level", levelNumber, "not found!")
 		return
 	end
-	
-	-- Build level environment
-	print("[Server] Building level environment...")
-	LevelEnvironment:BuildLevel(levelNumber)
-	print("[Server] Level environment built")
 	
 	-- Ensure all players have characters, then move them to spawn
 	for _, player in pairs(Players:GetPlayers()) do
