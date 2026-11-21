@@ -28,6 +28,12 @@ A vibrant, colorful first-person sniper game for Roblox where you shoot bubble g
 3. Run `rojo serve` in the project root
 4. In Roblox Studio, open the **Rojo** plugin and connect to localhost
 
+### Scenery assets
+
+Export Studio models as `.rbxm` or `.rbxmx` files into [assets/](./assets/) and commit them. Rojo syncs them to `Workspace.Assets`. Re-export to the same file after editing a model in Studio. If the original is still in Workspace, remove it once you verify the synced copy so you don't have two copies.
+
+Scenery stays in Workspace across levels. Include solid ground beneath each player spawn defined in [level-data.lua](./src/server/levels/level-data.lua); the game no longer generates spawn platforms.
+
 ### Project Structure
 
 ```
