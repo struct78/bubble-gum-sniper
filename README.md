@@ -34,6 +34,8 @@ Export Studio models as `.rbxm` or `.rbxmx` files into [assets/](./assets/) and 
 
 Scenery stays in Workspace across levels. Include solid ground beneath each player spawn defined in [level-data.lua](./src/server/levels/level-data.lua); the game no longer generates spawn platforms.
 
+For the [dome wobble](./src/server/dome-wobble.server.lua), name the anchored union `BubbleDome` and place it directly in `Workspace` or anywhere under `Workspace.Assets`. Disable any old wobble script inside the union so only one script animates it. If the dome is decorative, turn off `CanCollide` and use a separate floor.
+
 ### Project Structure
 
 ```
