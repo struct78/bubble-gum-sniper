@@ -47,9 +47,22 @@ local function signal()
 	return event
 end
 
+local function popModules(events)
+	return function(module)
+		if module == "pop-remote" then
+			return { Events = { BubblePop = { FireAllClients = function(_, position, size, axis)
+				table.insert(events, { Position = position, Size = size, Axis = axis })
+			end } } }
+		end
+		return dofile("src/server/bubble-wobble.lua")
+	end
+end
+
+local popScript = { Parent = { Parent = { networking = { ["remote-events"] = "pop-remote" } } } }
+
 local function popFixture()
 	local clock = { Now = 9 }
-	local world, parts, listeners = {}, {}, {}
+	local world, parts, listeners, events = {}, {}, {}, {}
 	local heartbeat = {}
 	function heartbeat:Connect(callback)
 		listeners[callback] = true
@@ -60,8 +73,8 @@ local function popFixture()
 		time = function() return clock.Now end,
 		warn = error,
 		game = { GetService = function() return { Heartbeat = heartbeat } end },
-		script = { Parent = { Parent = {} } },
-		require = function() return dofile("src/server/bubble-wobble.lua") end,
+		script = popScript,
+		require = popModules(events),
 		Enum = { PartType = { Ball = "Ball" }, Material = { SmoothPlastic = "SmoothPlastic" } },
 		Color3 = { fromRGB = function() return "pink" end },
 		Instance = { new = function()
@@ -76,7 +89,7 @@ local function popFixture()
 		end },
 	}, { __index = _G })
 	local bubble = assert(loadfile("src/server/gameplay/impact-bubble.lua", "t", environment))()
-	return bubble, world, parts, clock, listeners
+	return bubble, world, parts, clock, listeners, events
 end
 
 test("visual", function()
@@ -88,14 +101,14 @@ test("visual", function()
 		return connect(self, callback)
 	end
 	local world = {}
-	local wobble = dofile("src/server/bubble-wobble.lua")
+	local events = {}
 	local environment = setmetatable({
 		workspace = world,
 		time = function() return now end,
 		warn = function() warnings = warnings + 1 end,
 		game = { GetService = function() return { Heartbeat = heartbeat } end },
-		script = { Parent = { Parent = {} } },
-		require = function() return wobble end,
+		script = popScript,
+		require = popModules(events),
 		Enum = { PartType = { Ball = "Ball" }, Material = { SmoothPlastic = "SmoothPlastic" } },
 		Color3 = { fromRGB = function() return "pink" end },
 		Instance = { new = function()
@@ -127,14 +140,10 @@ test("visual", function()
 	assert(part.Parent == world and part.Transparency == 0.5)
 	now = 20
 	heartbeat:Fire()
-	assert(part.Parent == world and part.Transparency == 0.5)
-	now = 20.075
-	heartbeat:Fire()
-	assert(part.Size.Y > full)
-	near(part.Transparency, 0.75)
-	now = 20.16
-	heartbeat:Fire()
 	assert(part.Destroyed and not heartbeat.callback)
+	assert(#events == 1 and events[1].Position == contact.Position)
+	near(events[1].Size.Y, full)
+	near(events[1].Axis.Y, 1)
 
 	contact.Time = now
 	local moving = true
@@ -305,7 +314,7 @@ local function runLiveLoop(mode)
 	local target = { Position = vector.new(popping and 30 or 8, 0, 0), Instance = { Destroy = function() end } }
 	local hitCount, spawnCount, hideCount, warnings, frame = 0, 0, 0, 0, 0
 	local shot = { Instance = { Parent = {} }, IsActive = true, Position = vector.new(), Velocity = vector.new(10, 0, 0), CreatedAt = 0 }
-	local bubbles, world, parts, clock, listeners = popFixture()
+	local bubbles, world, parts, clock, listeners, events = popFixture()
 	local full, inflating, later, own, beyond, miss, expired, removed
 	if mode == "with-bubbles" then
 		local function place(x, y, contactTime, owner)
@@ -433,9 +442,10 @@ local function runLiveLoop(mode)
 			assert(not shot.Stuck and shot.IsActive and hitCount == 0 and hideCount == 0)
 			assert(scores[victim].Value == 70 and scores[shooter].Value == 40)
 			if full then
-				assert(full.Parent == world and inflating.Parent == world)
-				assert(later.Parent == world and own.Parent == world and miss.Parent == world)
-				assert(expired.Parent == world and removed.Parent == nil)
+				assert(full.DestroyCount == 1 and inflating.DestroyCount == 1)
+				assert(later.DestroyCount == i - 1 and own.Parent == world and miss.Parent == world)
+				assert(expired.Parent == nil and removed.Parent == nil)
+				assert(#events == i + 2)
 			end
 		end
 		loop()
@@ -449,18 +459,19 @@ local function runLiveLoop(mode)
 		if full then
 			assert(beyond.Parent == world and miss.Parent == world and own.Parent == world)
 			removed.AncestryChanged:Fire()
-			local initialDiameter = inflating.Size.Y
-			clock.Now = 10.075
-			-- A second shot during the fade must not restart it.
 			bubbles.PopAlongStep({ Origin = vector.new(), Displacement = vector.new(17, 0, 0) }, shot)
-			for callback in pairs(listeners) do callback() end
-			for _, part in ipairs({ full, inflating, later, expired }) do
-				near(part.Transparency, 0.75)
-				assert(part.Parent == world and not part.CanQuery and not part.CanCollide)
+			assert(#events == 4)
+			for _, event in ipairs(events) do
+				if event.Position == expired.Position then
+					near(event.Axis.Y, 1)
+				elseif event.Position == full.Position then
+					local y = -full.Position.Y * 2 / full.Size.Y
+					near(event.Axis.Y, y)
+					near(event.Axis.X, -math.sqrt(1 - y * y))
+				else
+					near(event.Axis.X, -1)
+				end
 			end
-			assert(inflating.Size.Y > initialDiameter)
-			clock.Now = 10.16
-			for callback in pairs(listeners) do callback() end
 			assert(full.DestroyCount == 1 and inflating.DestroyCount == 1 and later.DestroyCount == 1)
 			assert(expired.DestroyCount == 1 and removed.DestroyCount == 1)
 			local liveConnections = 0
@@ -481,4 +492,71 @@ test("live-loop", function() runLiveLoop() end)
 test("shoot-through", function()
 	runLiveLoop("empty")
 	runLiveLoop("with-bubbles")
+end)
+
+test("pop-renderer", function()
+	for _, allowMesh in ipairs({ true, false }) do
+		local remote, frame = signal(), signal()
+		local world, parts, vertices = {}, {}, {}
+		local warnings = 0
+		local mesh = {
+			AddVertex = function(_, point)
+				table.insert(vertices, point)
+				return #vertices
+			end,
+			SetPosition = function(_, id, point) vertices[id] = point end,
+			AddTriangle = function() end,
+			Destroy = function(self) self.Destroyed = true end,
+		}
+		local function newPart()
+			local part = { Destroy = function(self) self.Parent = nil end }
+			table.insert(parts, part)
+			return part
+		end
+		local remoteFolder = { WaitForChild = function() return { OnClientEvent = remote } end }
+		local services = {
+			AssetService = {
+				CreateEditableMesh = function()
+					if not allowMesh then error("Mesh APIs disabled") end
+					return mesh
+				end,
+				CreateMeshPartAsync = newPart,
+			},
+			ReplicatedStorage = { WaitForChild = function() return remoteFolder end },
+			RunService = { RenderStepped = frame },
+		}
+		local environment = setmetatable({
+			workspace = world,
+			game = { GetService = function(_, name) return services[name] end },
+			Vector3 = setmetatable({ zero = vector.new(), one = vector.new(1, 1, 1), yAxis = vector.new(0, 1, 0) }, { __index = vector }),
+			CFrame = { lookAt = function() return { VectorToWorldSpace = function(_, point) return point end } end },
+			Random = { new = function() return { NextNumber = function(_, min, max) return (min + max) / 2 end } end },
+			Color3 = { fromRGB = function() return "pink" end },
+			Content = { fromObject = function(object) return object end },
+			Enum = { CollisionFidelity = {}, RenderFidelity = {}, Material = {}, PartType = {} },
+			Instance = { new = newPart },
+			warn = function() warnings = warnings + 1 end,
+		}, { __index = _G })
+		assert(loadfile("src/client/rendering/bubble-pop.client.lua", "t", environment))()
+		remote:Fire(vector.new(), vector.new(2, 2, 2), vector.new(0, 0, -1))
+		if allowMesh then
+			assert(vertices[1].Z < -0.95 and parts[1].Parent == world)
+		end
+		frame:Fire(0.14)
+		if allowMesh then
+			assert(vertices[1].Z > 0 and parts[1].Transparency > 0.5)
+		end
+		local visibleDrops = 0
+		for _, part in ipairs(parts) do
+			if part.Name == "GumPopDroplet" and part.Parent == world then
+				visibleDrops = visibleDrops + 1
+				assert(not part.CanCollide and not part.CanQuery and not part.CanTouch)
+			end
+		end
+		assert(visibleDrops == 24)
+		frame:Fire(0.15)
+		assert(not frame.callback and (not allowMesh or mesh.Destroyed))
+		for _, part in ipairs(parts) do assert(not part.Parent) end
+		assert(warnings == (allowMesh and 0 or 1))
+	end
 end)

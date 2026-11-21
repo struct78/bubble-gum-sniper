@@ -1,12 +1,11 @@
 local RunService = game:GetService("RunService")
 local BubbleWobble = require(script.Parent.Parent["bubble-wobble"])
+local BubblePopEvent = require(script.Parent.Parent.networking["remote-events"]).Events.BubblePop
 
 local START_DIAMETER = 0.4
 local FULL_DIAMETER = 3
 local INFLATION_SECONDS = 1.2
 local LIFETIME_SECONDS = 10
-local POP_SECONDS = 0.15
-local POP_STRETCH = 1.25
 
 local ImpactBubble = {}
 local liveBubbles = {}
@@ -15,14 +14,22 @@ local function InBubbleSpace(vector, size)
 	return Vector3.new(2 * vector.X / size.X, 2 * vector.Y / size.Y, 2 * vector.Z / size.Z)
 end
 
-local function CrossesBubble(step, bubble)
-	-- Scale the current visual ellipsoid to a unit sphere and test the closest
-	-- point on the finite segment. No world query or collision filter changes.
+local function PunctureDirection(step, bubble)
+	-- Solve the finite segment in unit-sphere space, using the entry root first.
 	local start = InBubbleSpace(step.Origin - bubble.Position, bubble.Size)
 	local delta = InBubbleSpace(step.Displacement, bubble.Size)
-	local fraction = math.max(0, math.min(1, -start:Dot(delta) / delta:Dot(delta)))
-	local closest = start + delta * fraction
-	return closest:Dot(closest) <= 1
+	local a = delta:Dot(delta)
+	if a == 0 then return nil end
+	local b = start:Dot(delta)
+	local c = start:Dot(start) - 1
+	local discriminant = b * b - a * c
+	if discriminant < 0 then return nil end
+	local root = math.sqrt(discriminant)
+	local entry, exit = (-b - root) / a, (-b + root) / a
+	if entry > 1 or exit < 0 then return nil end
+	if entry >= 0 then return (start + delta * entry).Unit end
+	if exit <= 1 then return (start + delta * exit).Unit end
+	return start.Magnitude > 0 and start.Unit or delta.Unit * -1
 end
 
 function ImpactBubble.PopAlongStep(step, shot)
@@ -31,8 +38,11 @@ function ImpactBubble.PopAlongStep(step, shot)
 	for part, effect in pairs(liveBubbles) do
 		if part.Parent ~= workspace then
 			effect.Cleanup()
-		elseif now >= effect.Deadline or (effect.Owner ~= shot and CrossesBubble(step, part)) then
-			effect.Pop(now)
+		elseif now >= effect.Deadline then
+			effect.Pop(Vector3.new(0, 1, 0))
+		elseif effect.Owner ~= shot then
+			local direction = PunctureDirection(step, part)
+			if direction then effect.Pop(direction) end
 		end
 	end
 end
@@ -42,7 +52,6 @@ function ImpactBubble.Spawn(contact, owner)
 	if time() >= deadline then return end
 
 	local bubble, heartbeat, ancestry
-	local popStarted, popSize
 	local function Cleanup()
 		if heartbeat then
 			heartbeat:Disconnect()
@@ -65,20 +74,13 @@ function ImpactBubble.Spawn(contact, owner)
 		warn("[ImpactBubble] " .. tostring(err))
 	end
 
-	local function Pop(now)
-		liveBubbles[bubble] = nil
-		popStarted = now
-		popSize = bubble.Size
-	end
-
-	local function AdvancePop(now)
-		if now >= popStarted + POP_SECONDS then
-			Cleanup()
-			return
-		end
-		local progress = (now - popStarted) / POP_SECONDS
-		bubble.Size = popSize * (1 + (POP_STRETCH - 1) * progress)
-		bubble.Transparency = 0.5 + 0.5 * progress
+	local function Pop(direction)
+		local position, size = bubble.Position, bubble.Size
+		Cleanup()
+		local ok, err = pcall(function()
+			BubblePopEvent:FireAllClients(position, size, direction)
+		end)
+		if not ok then warn("[ImpactBubble] " .. tostring(err)) end
 	end
 
 	local function Update(elapsed)
@@ -109,21 +111,16 @@ function ImpactBubble.Spawn(contact, owner)
 		ancestry = bubble.AncestryChanged:Connect(function()
 			if bubble and bubble.Parent ~= workspace then Cleanup() end
 		end)
-		-- One writer owns inflation, wobble and pop, even after the level ends.
+		-- Expiry is independent of the level loop.
 		heartbeat = RunService.Heartbeat:Connect(function()
 			if not bubble then return end
 			local now = time()
 			if bubble.Parent ~= workspace then
 				Cleanup()
+			elseif now >= deadline then
+				Pop(Vector3.new(0, 1, 0))
 			else
-				local updated, updateError
-				if popStarted then
-					updated, updateError = pcall(AdvancePop, now)
-				elseif now >= deadline then
-					updated, updateError = pcall(Pop, now)
-				else
-					updated, updateError = pcall(Update, now - contact.Time)
-				end
+				local updated, updateError = pcall(Update, now - contact.Time)
 				if not updated then HandleFailure(updateError) end
 			end
 		end)

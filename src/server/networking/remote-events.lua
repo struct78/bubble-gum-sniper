@@ -20,6 +20,10 @@ local function CreateRemoteEvents()
 	local hitEvent = Instance.new("RemoteEvent")
 	hitEvent.Name = "Hit"
 	hitEvent.Parent = remoteFolder
+
+	local bubblePopEvent = Instance.new("RemoteEvent")
+	bubblePopEvent.Name = "BubblePop"
+	bubblePopEvent.Parent = remoteFolder
 	
 	-- Update HUD event (server → client)
 	local updateHUDEvent = Instance.new("RemoteEvent")
@@ -51,6 +55,7 @@ local function CreateRemoteEvents()
 	return {
 		Fire = fireEvent,
 		Hit = hitEvent,
+		BubblePop = bubblePopEvent,
 		UpdateHUD = updateHUDEvent,
 		LevelComplete = levelCompleteEvent,
 		PurchaseCosmetic = purchaseCosmeticEvent,

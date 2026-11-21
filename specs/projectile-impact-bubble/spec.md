@@ -40,12 +40,14 @@ Gum shots currently flatten on surfaces. The impact bubble replaces that visual 
 **Then** it reaches full size within 1.2 seconds while using the same gentle, alternating horizontal squash and stretch as `BubbleDome`  
 **And** it starts popping 10 seconds after contact unless another gum shot pops it sooner.
 
-### A pop briefly stretches and fades the bubble
+### A pop tears open from the point of contact
 
 **Given** an impact bubble reaches its lifetime or another gum shot pops it\
 **When** the pop starts\
 **Then** the bubble stops counting for further pops immediately\
-**And** it briefly stretches from its current size and fades out over 0.15 seconds before being removed\
+**And** a hole opens at the shot's first intersection with the bubble, or at its top when the bubble expires\
+**And** the opening widens across the pink shell and sheds small pink droplets from its moving rim\
+**And** the shell and droplets disappear within 0.28 seconds after the client animation starts\
 **And** another shot passing through the fading bubble does not restart the animation.
 
 ### A single shot cannot produce duplicate bubbles
