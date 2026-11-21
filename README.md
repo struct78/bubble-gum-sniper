@@ -70,10 +70,9 @@ src/
 - **Difficulty:** Scales via wind multiplier, distance, visibility
 - **Monetization:** Soft currency only (MVP)
 
-## Contributors
+## License
 
-- Lead Dev: David Johnson
-- Junior Dev: Julian Johnson-Shaw
+[MIT NON-AI License](./LICENSE.md).
 
 ---
 
