@@ -127,6 +127,13 @@ test("visual", function()
 	assert(part.Parent == world and part.Transparency == 0.5)
 	now = 20
 	heartbeat:Fire()
+	assert(part.Parent == world and part.Transparency == 0.5)
+	now = 20.075
+	heartbeat:Fire()
+	assert(part.Size.Y > full)
+	near(part.Transparency, 0.75)
+	now = 20.16
+	heartbeat:Fire()
 	assert(part.Destroyed and not heartbeat.callback)
 
 	contact.Time = now
@@ -426,9 +433,9 @@ local function runLiveLoop(mode)
 			assert(not shot.Stuck and shot.IsActive and hitCount == 0 and hideCount == 0)
 			assert(scores[victim].Value == 70 and scores[shooter].Value == 40)
 			if full then
-				assert(full.DestroyCount == 1 and inflating.DestroyCount == 1)
-				assert(later.DestroyCount == i - 1 and own.Parent == world and miss.Parent == world)
-				assert(expired.Parent == nil and removed.Parent == nil)
+				assert(full.Parent == world and inflating.Parent == world)
+				assert(later.Parent == world and own.Parent == world and miss.Parent == world)
+				assert(expired.Parent == world and removed.Parent == nil)
 			end
 		end
 		loop()
@@ -442,7 +449,18 @@ local function runLiveLoop(mode)
 		if full then
 			assert(beyond.Parent == world and miss.Parent == world and own.Parent == world)
 			removed.AncestryChanged:Fire()
-			bubbles.PopAlongStep({ Origin = vector.new(), Displacement = vector.new(9, 0, 0) }, {})
+			local initialDiameter = inflating.Size.Y
+			clock.Now = 10.075
+			-- A second shot during the fade must not restart it.
+			bubbles.PopAlongStep({ Origin = vector.new(), Displacement = vector.new(17, 0, 0) }, shot)
+			for callback in pairs(listeners) do callback() end
+			for _, part in ipairs({ full, inflating, later, expired }) do
+				near(part.Transparency, 0.75)
+				assert(part.Parent == world and not part.CanQuery and not part.CanCollide)
+			end
+			assert(inflating.Size.Y > initialDiameter)
+			clock.Now = 10.16
+			for callback in pairs(listeners) do callback() end
 			assert(full.DestroyCount == 1 and inflating.DestroyCount == 1 and later.DestroyCount == 1)
 			assert(expired.DestroyCount == 1 and removed.DestroyCount == 1)
 			local liveConnections = 0

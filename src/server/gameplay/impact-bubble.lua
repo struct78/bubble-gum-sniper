@@ -5,6 +5,8 @@ local START_DIAMETER = 0.4
 local FULL_DIAMETER = 3
 local INFLATION_SECONDS = 1.2
 local LIFETIME_SECONDS = 10
+local POP_SECONDS = 0.15
+local POP_STRETCH = 1.25
 
 local ImpactBubble = {}
 local liveBubbles = {}
@@ -27,9 +29,10 @@ function ImpactBubble.PopAlongStep(step, shot)
 	if not (step.Displacement.Magnitude > 0) then return end
 	local now = time()
 	for part, effect in pairs(liveBubbles) do
-		local stale = part.Parent ~= workspace or now >= effect.Deadline
-		if stale or (effect.Owner ~= shot and CrossesBubble(step, part)) then
+		if part.Parent ~= workspace then
 			effect.Cleanup()
+		elseif now >= effect.Deadline or (effect.Owner ~= shot and CrossesBubble(step, part)) then
+			effect.Pop(now)
 		end
 	end
 end
@@ -39,6 +42,7 @@ function ImpactBubble.Spawn(contact, owner)
 	if time() >= deadline then return end
 
 	local bubble, heartbeat, ancestry
+	local popStarted, popSize
 	local function Cleanup()
 		if heartbeat then
 			heartbeat:Disconnect()
@@ -59,6 +63,22 @@ function ImpactBubble.Spawn(contact, owner)
 	local function HandleFailure(err)
 		Cleanup()
 		warn("[ImpactBubble] " .. tostring(err))
+	end
+
+	local function Pop(now)
+		liveBubbles[bubble] = nil
+		popStarted = now
+		popSize = bubble.Size
+	end
+
+	local function AdvancePop(now)
+		if now >= popStarted + POP_SECONDS then
+			Cleanup()
+			return
+		end
+		local progress = (now - popStarted) / POP_SECONDS
+		bubble.Size = popSize * (1 + (POP_STRETCH - 1) * progress)
+		bubble.Transparency = 0.5 + 0.5 * progress
 	end
 
 	local function Update(elapsed)
@@ -89,18 +109,25 @@ function ImpactBubble.Spawn(contact, owner)
 		ancestry = bubble.AncestryChanged:Connect(function()
 			if bubble and bubble.Parent ~= workspace then Cleanup() end
 		end)
-		-- Heartbeat owns the deadline, independently of the level loop.
+		-- One writer owns inflation, wobble and pop, even after the level ends.
 		heartbeat = RunService.Heartbeat:Connect(function()
 			if not bubble then return end
 			local now = time()
-			if now >= deadline or bubble.Parent ~= workspace then
+			if bubble.Parent ~= workspace then
 				Cleanup()
 			else
-				local updated, updateError = pcall(Update, now - contact.Time)
+				local updated, updateError
+				if popStarted then
+					updated, updateError = pcall(AdvancePop, now)
+				elseif now >= deadline then
+					updated, updateError = pcall(Pop, now)
+				else
+					updated, updateError = pcall(Update, now - contact.Time)
+				end
 				if not updated then HandleFailure(updateError) end
 			end
 		end)
-		liveBubbles[bubble] = { Owner = owner, Deadline = deadline, Cleanup = Cleanup }
+		liveBubbles[bubble] = { Owner = owner, Deadline = deadline, Cleanup = Cleanup, Pop = Pop }
 		bubble.Parent = workspace
 	end)
 	if not ok then HandleFailure(err) end

@@ -38,7 +38,15 @@ Gum shots currently flatten on surfaces. The impact bubble replaces that visual 
 **Given** an impact bubble has appeared  
 **When** it inflates and wobbles  
 **Then** it reaches full size within 1.2 seconds while using the same gentle, alternating horizontal squash and stretch as `BubbleDome`  
-**And** it is removed 10 seconds after contact unless another gum shot pops it sooner, leaving no impact visual behind.
+**And** it starts popping 10 seconds after contact unless another gum shot pops it sooner.
+
+### A pop briefly stretches and fades the bubble
+
+**Given** an impact bubble reaches its lifetime or another gum shot pops it\
+**When** the pop starts\
+**Then** the bubble stops counting for further pops immediately\
+**And** it briefly stretches from its current size and fades out over 0.15 seconds before being removed\
+**And** another shot passing through the fading bubble does not restart the animation.
 
 ### A single shot cannot produce duplicate bubbles
 
@@ -58,7 +66,7 @@ Gum shots currently flatten on surfaces. The impact bubble replaces that visual 
 
 **Given** one or more impact bubbles are still visible, whether inflating or fully inflated  
 **When** another flying gum shot crosses them along its path  
-**Then** each crossed bubble pops immediately and is removed  
+**Then** each crossed bubble starts popping immediately\
 **And** the shot keeps flying without losing speed or changing direction because of a pop  
 **And** popping a bubble does not create another bubble or award points  
 **And** bubbles beyond a surface that stops the shot are not popped.
